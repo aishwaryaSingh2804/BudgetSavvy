@@ -1,20 +1,18 @@
--- ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'qwerty123$';
+-- ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '';
 -- FLUSH PRIVILEGES;
 
 CREATE DATABASE IF NOT EXISTS TaxSavvy;
 -- drop database if exists TaxSavvy;
 USE TaxSavvy;
--- ================================================
+
 -- Drop Existing Tables (if any)
--- ================================================
+
 DROP TABLE IF EXISTS FeatureProfessions;
 DROP TABLE IF EXISTS FeatureAgeGroups;
 DROP TABLE IF EXISTS FeatureLocations;
 DROP TABLE IF EXISTS Features;
 
--- ================================================
 -- Create the Features Table with JSON column
--- ================================================
 CREATE TABLE Features (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,  -- Prevent duplicate features
@@ -23,12 +21,11 @@ CREATE TABLE Features (
     category VARCHAR(100) NOT NULL
 );
 
--- ✅ Index for faster filtering by category
+-- Index for faster filtering by category
 CREATE INDEX idx_category ON Features(category);
 
--- ================================================
 -- Create the FeatureProfessions Table (Join Table)
--- ================================================
+
 CREATE TABLE FeatureProfessions (
     feature_id INT NOT NULL,
     profession VARCHAR(255) NOT NULL,
@@ -38,9 +35,7 @@ CREATE TABLE FeatureProfessions (
 
 CREATE INDEX idx_profession ON FeatureProfessions(profession);
 
--- ================================================
 -- Create Age Groups Association Table
--- ================================================
 CREATE TABLE FeatureAgeGroups (
     feature_id INT NOT NULL,
     age_group VARCHAR(100) NOT NULL,  
@@ -50,9 +45,7 @@ CREATE TABLE FeatureAgeGroups (
 
 CREATE INDEX idx_age_group ON FeatureAgeGroups(age_group);
 
--- ================================================
 -- Create Locations Association Table
--- ================================================
 CREATE TABLE FeatureLocations (
     feature_id INT NOT NULL,
     location VARCHAR(255) NOT NULL,  
@@ -62,9 +55,7 @@ CREATE TABLE FeatureLocations (
 
 CREATE INDEX idx_location ON FeatureLocations(location);
 
--- ================================================
 -- Create the Stored Procedure for Bulk Insertion
--- ================================================
 DELIMITER $$
 
 CREATE PROCEDURE AddFeatureWithTags(
@@ -81,14 +72,12 @@ BEGIN
     DECLARE tag VARCHAR(255);
     DECLARE comma_pos INT;
 
-    -- ✅ Insert into Features table
     INSERT INTO Features (name, description, detailed_explanation, category)
     VALUES (feature_name, feature_description, feature_detailed_explanation, feature_category);
     
-    -- ✅ Get last inserted feature ID
     SET feature_id = LAST_INSERT_ID();
     
-    -- ✅ Insert Professions
+    -- Insert Professions
     WHILE profession_tags <> '' DO
         SET comma_pos = LOCATE(',', profession_tags);
         IF comma_pos = 0 THEN
@@ -104,7 +93,7 @@ BEGIN
         END IF;
     END WHILE;
 
-    -- ✅ Insert Age Groups
+    -- Insert Age Groups
     WHILE age_group_tags <> '' DO
         SET comma_pos = LOCATE(',', age_group_tags);
         IF comma_pos = 0 THEN
@@ -120,7 +109,7 @@ BEGIN
         END IF;
     END WHILE;
 
-    -- ✅ Insert Locations
+    -- Insert Locations
     WHILE location_tags <> '' DO
         SET comma_pos = LOCATE(',', location_tags);
         IF comma_pos = 0 THEN
@@ -140,9 +129,171 @@ END $$
 
 DELIMITER ;
 
--- ================================================
--- Insert a Sample Feature using the Stored Procedure
--- ================================================
+-- DELIMITER $$
+
+-- CREATE PROCEDURE AddFeatureWithTags(
+--     IN feature_name VARCHAR(255),
+--     IN feature_description TEXT,
+--     IN feature_detailed_explanation TEXT,
+--     IN feature_category VARCHAR(100),
+--     IN profession_tags TEXT,
+--     IN age_group_tags TEXT,
+--     IN location_tags TEXT
+-- )
+-- BEGIN
+--     DECLARE feature_id INT;
+
+--     DECLARE tag VARCHAR(255);
+--     DECLARE comma_pos INT;
+
+--     DECLARE professionId INT;
+--     DECLARE ageGroupId INT;
+--     DECLARE locationId INT;
+
+--     ----------------------------------------------------
+--     -- Insert Feature
+--     ----------------------------------------------------
+--     INSERT INTO Features(name, description, detailed_explanation, category)
+--     VALUES(feature_name,
+--            feature_description,
+--            feature_detailed_explanation,
+--            feature_category);
+
+--     SET feature_id = LAST_INSERT_ID();
+
+--     ----------------------------------------------------
+--     -- PROFESSIONS
+--     ----------------------------------------------------
+
+--     WHILE profession_tags <> '' DO
+
+--         SET comma_pos = LOCATE(',', profession_tags);
+
+--         IF comma_pos = 0 THEN
+--             SET tag = TRIM(profession_tags);
+--             SET profession_tags = '';
+--         ELSE
+--             SET tag = TRIM(SUBSTRING_INDEX(profession_tags, ',', 1));
+--             SET profession_tags = TRIM(SUBSTRING(profession_tags, comma_pos + 1));
+--         END IF;
+
+--         IF tag <> '' THEN
+
+--             -- Check if profession exists
+--             SELECT profession_id
+--             INTO professionId
+--             FROM Profession
+--             WHERE profession_name = tag
+--             LIMIT 1;
+
+--             -- If not found, insert it
+--             IF professionId IS NULL THEN
+
+--                 INSERT INTO Profession(profession_name)
+--                 VALUES(tag);
+
+--                 SET professionId = LAST_INSERT_ID();
+
+--             END IF;
+
+--             -- Create relationship
+--             INSERT IGNORE INTO FeatureProfession(feature_id, profession_id)
+--             VALUES(feature_id, professionId);
+
+--             SET professionId = NULL;
+
+--         END IF;
+
+--     END WHILE;
+
+--     ----------------------------------------------------
+--     -- AGE GROUPS
+--     ----------------------------------------------------
+
+--     WHILE age_group_tags <> '' DO
+
+--         SET comma_pos = LOCATE(',', age_group_tags);
+
+--         IF comma_pos = 0 THEN
+--             SET tag = TRIM(age_group_tags);
+--             SET age_group_tags = '';
+--         ELSE
+--             SET tag = TRIM(SUBSTRING_INDEX(age_group_tags, ',', 1));
+--             SET age_group_tags = TRIM(SUBSTRING(age_group_tags, comma_pos + 1));
+--         END IF;
+
+--         IF tag <> '' THEN
+
+--             SELECT age_group_id
+--             INTO ageGroupId
+--             FROM AgeGroup
+--             WHERE age_group_name = tag
+--             LIMIT 1;
+
+--             IF ageGroupId IS NULL THEN
+
+--                 INSERT INTO AgeGroup(age_group_name)
+--                 VALUES(tag);
+
+--                 SET ageGroupId = LAST_INSERT_ID();
+
+--             END IF;
+
+--             INSERT IGNORE INTO FeatureAgeGroup(feature_id, age_group_id)
+--             VALUES(feature_id, ageGroupId);
+
+--             SET ageGroupId = NULL;
+
+--         END IF;
+
+--     END WHILE;
+
+--     ----------------------------------------------------
+--     -- LOCATIONS
+--     ----------------------------------------------------
+
+--     WHILE location_tags <> '' DO
+
+--         SET comma_pos = LOCATE(',', location_tags);
+
+--         IF comma_pos = 0 THEN
+--             SET tag = TRIM(location_tags);
+--             SET location_tags = '';
+--         ELSE
+--             SET tag = TRIM(SUBSTRING_INDEX(location_tags, ',', 1));
+--             SET location_tags = TRIM(SUBSTRING(location_tags, comma_pos + 1));
+--         END IF;
+
+--         IF tag <> '' THEN
+
+--             SELECT location_id
+--             INTO locationId
+--             FROM Location
+--             WHERE location_name = tag
+--             LIMIT 1;
+
+--             IF locationId IS NULL THEN
+
+--                 INSERT INTO Location(location_name)
+--                 VALUES(tag);
+
+--                 SET locationId = LAST_INSERT_ID();
+
+--             END IF;
+
+--             INSERT IGNORE INTO FeatureLocation(feature_id, location_id)
+--             VALUES(feature_id, locationId);
+
+--             SET locationId = NULL;
+
+--         END IF;
+
+--     END WHILE;
+
+-- END$$
+
+-- DELIMITER ;
+
 CALL AddFeatureWithTags(
   'Zero-Poverty',
   'Comprehensive measures to eradicate poverty through social welfare, employment, and financial inclusion programs.',
